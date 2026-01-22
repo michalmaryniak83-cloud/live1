@@ -1,0 +1,229 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8">
+<title>Live DJ-u Michale</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<style>
+body {
+  margin: 0;
+  font-family: Arial, sans-serif;
+  background: #0f172a;
+  color: #e5e7eb;
+}
+
+header {
+  background: #020617;
+  padding: 15px;
+  text-align: center;
+}
+
+main {
+  max-width: 1300px;
+  margin: auto;
+  padding: 10px;
+  display: grid;
+  grid-template-columns: 3fr 1fr;
+  gap: 12px;
+}
+
+.video-box {
+  background: #020617;
+  padding: 10px;
+  border-radius: 14px;
+}
+
+.video-wrapper {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 16 / 9; /* 🔥 PROPORCJE LAPTOPOWE */
+  background: black;
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+video {
+  width: 100%;
+  height: 100%;
+  object-fit: cover; /* wypełnia ekran jak YouTube */
+}
+
+button {
+  padding: 10px 14px;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  font-weight: bold;
+  margin: 4px 2px;
+}
+
+.green { background: #22c55e; }
+.red { background: #ef4444; }
+.blue { background: #3b82f6; }
+
+input {
+  padding: 8px;
+  width: 100%;
+  border-radius: 6px;
+  border: none;
+  margin-top: 6px;
+}
+
+#chat {
+  background: #020617;
+  border-radius: 14px;
+  padding: 10px;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+#messages {
+  flex: 1;
+  overflow-y: auto;
+  margin-bottom: 8px;
+  font-size: 14px;
+}
+
+.msg {
+  margin-bottom: 4px;
+}
+
+@media (max-width: 900px) {
+  main {
+    grid-template-columns: 1fr;
+  }
+}
+</style>
+</head>
+
+<body>
+
+<header>
+  <h1>🔴 Live DJ-u Michale</h1>
+</header>
+
+<main>
+
+<!-- WIDEO -->
+<div class="video-box">
+  <h3>Nadawca</h3>
+
+  <div class="video-wrapper">
+    <video id="localVideo" autoplay muted playsinline></video>
+  </div>
+
+  <button class="green" onclick="startLive()">Start LIVE</button>
+  <button class="red" onclick="stopLive()">Stop</button>
+  <button class="blue" onclick="fullscreen(localVideo)">Pełny ekran</button>
+
+  <p>ID LIVE:</p>
+  <input id="myId" readonly>
+
+  <hr>
+
+  <h3>Widz</h3>
+
+  <div class="video-wrapper">
+    <video id="remoteVideo" autoplay playsinline></video>
+  </div>
+
+  <button class="blue" onclick="fullscreen(remoteVideo)">Pełny ekran</button>
+
+  <input id="connectId" placeholder="Wklej ID live">
+  <button class="green" onclick="connect()">Połącz</button>
+</div>
+
+<!-- CHAT -->
+<div id="chat">
+  <h3>💬 Czat</h3>
+  <div id="messages"></div>
+  <input id="chatInput" placeholder="Napisz wiadomość">
+  <button class="green" onclick="sendMessage()">Wyślij</button>
+</div>
+
+</main>
+
+<script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
+
+<script>
+let peer = new Peer();
+let localStream;
+let conn;
+let callRef;
+
+const localVideo = document.getElementById("localVideo");
+const remoteVideo = document.getElementById("remoteVideo");
+const myIdInput = document.getElementById("myId");
+const messages = document.getElementById("messages");
+
+peer.on("open", id => {
+  myIdInput.value = id;
+});
+
+peer.on("connection", c => {
+  conn = c;
+  setupChat();
+});
+
+peer.on("call", call => {
+  call.answer(localStream);
+  callRef = call;
+  call.on("stream", stream => {
+    remoteVideo.srcObject = stream;
+  });
+});
+
+async function startLive() {
+  localStream = await navigator.mediaDevices.getUserMedia({
+    video: { width: 1280, height: 720 },
+    audio: true
+  });
+  localVideo.srcObject = localStream;
+}
+
+function stopLive() {
+  if (localStream) localStream.getTracks().forEach(t => t.stop());
+}
+
+function connect() {
+  const id = document.getElementById("connectId").value;
+  if (!id) return;
+
+  callRef = peer.call(id);
+  callRef.on("stream", stream => {
+    remoteVideo.srcObject = stream;
+  });
+
+  conn = peer.connect(id);
+  setupChat();
+}
+
+function setupChat() {
+  conn.on("data", data => addMsg("👤 Widz: " + data));
+}
+
+function sendMessage() {
+  const input = document.getElementById("chatInput");
+  if (!input.value || !conn) return;
+  addMsg("🧑 Ty: " + input.value);
+  conn.send(input.value);
+  input.value = "";
+}
+
+function addMsg(text) {
+  const div = document.createElement("div");
+  div.className = "msg";
+  div.textContent = text;
+  messages.appendChild(div);
+  messages.scrollTop = messages.scrollHeight;
+}
+
+function fullscreen(video) {
+  if (video.requestFullscreen) video.requestFullscreen();
+}
+</script>
+
+</body>
+</html>
